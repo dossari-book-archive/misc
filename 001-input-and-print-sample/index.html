@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box
+    }
+
+    html {
+      -moz-text-size-adjust: none;
+      -webkit-text-size-adjust: none;
+      text-size-adjust: none
+    }
+
+    body,
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    figure,
+    blockquote,
+    dl,
+    dd {
+      margin: 0
+    }
+
+    ul[role='list'],
+    ol[role='list'] {
+      list-style: none
+    }
+
+    body {
+      min-height: 100vh;
+      line-height: 1.5
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    button,
+    input,
+    label {
+      line-height: 1.1
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      text-wrap: balance
+    }
+
+    a:not([class]) {
+      text-decoration-skip-ink: auto;
+      color: currentColor
+    }
+
+    img,
+    picture {
+      max-width: 100%;
+      display: block
+    }
+
+    input,
+    button,
+    textarea,
+    select {
+      font: inherit
+    }
+
+    textarea:not([rows]) {
+      min-height: 10em
+    }
+
+    :target {
+      scroll-margin-block: 5ex
+    }
+  </style>
+  <style>
+    .flex-center {
+      display: flex;
+      justify-content: center;
+    }
+
+    .item {
+      margin-top: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media print {
+
+      .no-print,
+      .no-print * {
+        display: none !important;
+      }
+    }
+  </style>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const byId = (id) => document.getElementById(id)
+      const byNameChecked = (name) => document.querySelector(`[name=${name}]:checked`)
+      // okボタン
+      byId("okButton").addEventListener("click", () => {
+        byId("inputDiv").classList.add("hidden")
+        byId("printDiv").classList.remove("hidden")
+        const toggle = (id, willShow) => {
+          const elem = byId(id)
+          if (willShow) { elem.classList.remove("hidden") }
+          else { elem.classList.add("hidden") }
+        }
+        const age = Number(byId("age").value)
+        const sex = byNameChecked("sex").value
+        const smoking = byNameChecked("smoking").value
+        console.log(age, sex, smoking)
+        // 大腸がん検診 40歳以上
+        toggle("outDg", age >= 40)
+        // 腹部大動脈瘤スクリーニング:65歳以上かつ喫煙歴のある男性
+        toggle("outFds", age >= 65 && sex == "male" && smoking != "never")
+        // 骨粗鬆症: 65歳以上の女性
+        toggle("outKs", age >= 65 && sex == "female")
+      })
+      // 戻るボタン
+      byId("backButton").addEventListener("click", () => {
+        byId("inputDiv").classList.remove("hidden")
+        byId("printDiv").classList.add("hidden")
+      })
+      // 印刷ボタン
+      byId("printButton").addEventListener("click", () => {
+        window.print()
+      })
+    })
+  </script>
+</head>
+
+<body>
+  <div id="inputDiv" class="flex-center">
+    <div>
+      <div class="item">
+        <p>年齢</p>
+        <p>
+          <input type="text" id="age" style="width: 100px; border: 1px solid #666;" value="30">
+        </p>
+      </div>
+      <div class="item">
+        <p>性別</p>
+        <p>
+          <label>
+            <input type="radio" name="sex" value="male" checked>男性
+          </label>
+          &nbsp;
+          <label>
+            <input type="radio" name="sex" value="female">女性
+          </label>
+        </p>
+      </div>
+      <div class="item">
+        <p>喫煙歴</p>
+        <p>
+          <label>
+            <input type="radio" checked name="smoking" value="never">なし
+          </label>
+          &nbsp;
+          <label>
+            <input type="radio" name="smoking" value="current">あり（現在）
+          </label>
+          &nbsp;
+          <label>
+            <input type="radio" name="smoking" value="past">あり（過去）
+          </label>
+        </p>
+      </div>
+      <div class="item">
+        <button type="button" id="okButton">OK</button>
+      </div>
+    </div>
+  </div>
+  <div id="printDiv" class="flex-center hidden">
+    <div>
+      <div>検診項目：</div>
+      <ul>
+        <li id="outDg">大腸がん検診</li>
+        <li id="outFds">腹部大動脈瘤スクリーニング</li>
+        <li id="outKs">骨粗鬆症</li>
+      </ul>
+      <div class="no-print">
+        <button id="printButton">印刷</button>
+        <button id="backButton">戻る</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
