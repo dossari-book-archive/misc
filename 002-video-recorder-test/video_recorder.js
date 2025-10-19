@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/10/19 17:10"
+    elem.innerText = "2025/10/19 17:40"
   }
 })
 
@@ -126,18 +126,15 @@ window.MyVideoRecorder = (() => {
         // iOSのストリームは縦横がランダムで、かつブラウザが回転を挟むことがある
         // したがって、一度video要素に表示してから縦横比を取得する
         const videoPreview = this.videoPreview;
-        if (videoPreview) {
-          videoPreview.srcObject = this.stream;
-        }
+        videoPreview.srcObject = this.stream;
         // ストリームの実際のアスペクト比を取得
         await this.setVideoPreviewAspectRatio();
 
         // アスペクト比が反転している場合は1回だけ再取得--}}
         const isInverted = this.checkInvertedAspectRatio();
-        const logCommon = `vh:${videoHeight} vw:${videoWidth} portailt: ${this.isPortraitCamera} actualVideo: [w: ${videoPreview?.clientWidth} h: ${videoPreview?.clientHeight}]`
-        console.log(videoPreview)
+        const logCommon = `vh:${videoHeight} vw:${videoWidth} portailt: ${this.isPortraitCamera} actualVideo: [w: ${videoPreview.clientWidth} h: ${videoPreview.clientHeight}]`
         if (isInverted && !isRetried) {
-          this.stopCameraStream();
+          // this.stopCameraStream();
           this.log(`VH Retry: ${logCommon}`)
           return this.startCamera(videoHeight, videoWidth, true);
         } else {
@@ -307,12 +304,8 @@ window.MyVideoRecorder = (() => {
       if (this.stream) {
         this.stream.getTracks().forEach(track => track.stop());
         this.stream = null;
-
-        const videoPreview = this.videoPreview;
-        if (videoPreview) {
-          videoPreview.srcObject = null;
-        }
       }
+      this.videoPreview.srcObject = null;
       this.isPreviewLoaded = false;
     }
 
@@ -403,7 +396,7 @@ window.MyVideoRecorder = (() => {
   const writeHtml = (/** @type {HTMLElement} */elem, messageForUnsupported) => {
     //  プレビュー表示はvideoで行い、録画はcanvas内で行う
     elem.innerHTML = `
-     <video autoplay playsinline muted style="width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1)">
+     <video autoplay playsinline muted style="width: 100%; object-fit: contain; transform: scaleX(-1)">
        <p></p>
      </video>
      <canvas style="display:none;"></canvas>
