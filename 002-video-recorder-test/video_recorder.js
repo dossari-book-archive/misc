@@ -1,3 +1,10 @@
+document.addEventListener("DOMContentLoaded", () => {
+  const elem = document.getElementById("libVersion")
+  if (elem) {
+    elem.innerText = "2025/10/19 17:10"
+  }
+})
+
 window.MyVideoRecorder = (() => {
 
   const videoBitsPerSecond = 800000

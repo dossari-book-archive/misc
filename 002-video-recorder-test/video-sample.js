@@ -1,4 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const elem = document.getElementById("jsVersion")
+  if (elem) {
+    elem.innerText = "2025/10/19 17:10"
+  }
+})
+
+document.addEventListener("DOMContentLoaded", () => {
   ["", "2"].forEach(suffix => {
     let videoRecorder
     const recordingMessage = document.getElementById("recodingMessage" + suffix)
