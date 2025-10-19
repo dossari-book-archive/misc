@@ -6,9 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const audioDevices = document.getElementById("audioDevices" + suffix)
     const recordingSizeMB = document.getElementById("recordingSizeMB" + suffix)
     const remainedSizeMB = document.getElementById("remainingSizeMB" + suffix)
+    const logTextArea = document.getElementById("logTextArea" + suffix)
+    const logClearButton = document.getElementById("logClearButton" + suffix)
     MyVideoRecorder.init({
       selector: "#video" + suffix,
-      messageForUnsupported: "お使いのブラウザは動画再生に対応していません。"
+      messageForUnsupported: "お使いのブラウザは動画再生に対応していません。",
+      logTextArea
     }).then(vr => {
       videoRecorder = vr
       // 初期状態でデバイス一覧を取得して先頭を選択状態にしておく
@@ -55,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("getAvailableDevices" + suffix).addEventListener("click", async () => {
       updateDevices()
     })
+    logClearButton.addEventListener("click", () => logTextArea.value = "")
     // デバイス一覧
     const updateDevices = async () => {
       const devices = await videoRecorder.getAvailableDevices()

@@ -37,10 +37,12 @@ window.MyVideoRecorder = (() => {
     // videoタグのプレビューの内容(カメラ設定とHTML設定)と、録画した映像(カメラ設定のみ)にずれが出るため
     // その補正を行うため、プレビューのvideoと、録画のcanvasを分けて、録画はcanvasで処理したものを映像データとして保管
     ctx = null
+    logTextArea
 
-    constructor(videoPreview, canvasElement) {
+    constructor(videoPreview, canvasElement, logTextArea) {
       this.videoPreview = videoPreview
       this.canvasElement = canvasElement
+      this.logTextArea = logTextArea
     }
 
     // 初期化
@@ -108,8 +110,6 @@ window.MyVideoRecorder = (() => {
           audioConstraints.deviceId = { exact: this.selectedAudioDevice };
         }
 
-        console.log(videoConstraints, audioConstraints);
-
         // カメラからのストリームを取得
         this.stream = await navigator.mediaDevices.getUserMedia({
           video: videoConstraints,
@@ -127,9 +127,14 @@ window.MyVideoRecorder = (() => {
 
         // アスペクト比が反転している場合は1回だけ再取得--}}
         const isInverted = this.checkInvertedAspectRatio();
+        const logCommon = `vh:${videoHeight} vw:${videoWidth} portailt: ${this.isPortraitCamera} actualVideo: [w: ${videoPreview?.clientWidth} h: ${videoPreview?.clientHeight}]`
+        console.log(videoPreview)
         if (isInverted && !isRetried) {
           this.stopCameraStream();
+          this.log(`VH Retry: ${logCommon}`)
           return this.startCamera(videoHeight, videoWidth, true);
+        } else {
+          this.log(`VH Fixed: ${logCommon}`)
         }
 
         // 録画プレビューのロード完了
@@ -374,6 +379,10 @@ window.MyVideoRecorder = (() => {
         }
       }
     }
+    log(log) {
+      const t = new Date().toLocaleTimeString()
+      this.logTextArea.value += `${t} ${log}\n`
+    }
   }
 
   /**
@@ -405,9 +414,9 @@ window.MyVideoRecorder = (() => {
     *   elems: { video: HTMLVideoElement, canvas: HTMLCanvasElement }
     * }} param0 
     */
-  const createVideoObject = async ({ elems }) => {
+  const createVideoObject = async ({ elems, logTextArea }) => {
 
-    const vr = new VideoRecorder(elems.video, elems.canvas)
+    const vr = new VideoRecorder(elems.video, elems.canvas, logTextArea)
     await vr.init()
     return {
       get cameraSupported() { return vr.cameraSupported },
@@ -427,7 +436,7 @@ window.MyVideoRecorder = (() => {
    * 
    * @param {InitParam}
    */
-  const init = async ({ selector, messageForUnsupported }) => {
+  const init = async ({ selector, messageForUnsupported, logTextArea }) => {
     let elems
     if (selector instanceof HTMLElement) {
       elems = writeHtml(selector, messageForUnsupported)
@@ -440,7 +449,7 @@ window.MyVideoRecorder = (() => {
     } else {
       throw new Error("invalid selector: " + selector)
     }
-    return await createVideoObject({ elems })
+    return await createVideoObject({ elems, logTextArea })
   }
 
   return {
