@@ -9,16 +9,7 @@ window.MyVideoRecorder = (() => {
 
   const videoBitsPerSecond = 800000
   const audioBitsPerSecond = 128000
-
-  // 同時に複数のカメラプレビューを動かさないためのグローバル管理
-  // iOS Safari などで複数ストリームを同時起動すると向きやアスペクトが不安定になるため
-  // 同一ページで script が複数回評価されても共有されるように window に保持
-  const g = (typeof window !== 'undefined') ? window : globalThis;
-  if (g.__IM_ACTIVE_VIDEO_RECORDER === undefined) {
-    g.__IM_ACTIVE_VIDEO_RECORDER = null;
-  }
-  const getActiveRecorder = () => g.__IM_ACTIVE_VIDEO_RECORDER;
-  const setActiveRecorder = (rec) => { g.__IM_ACTIVE_VIDEO_RECORDER = rec };
+  let stream = null
 
   class VideoRecorder {
     // 簡易デバイス判定
@@ -41,7 +32,6 @@ window.MyVideoRecorder = (() => {
     // 映像・オーディオ設定関連
     cameraSupported = false
     isRecording = false
-    stream = null
     /** @type {MediaRecorder} */
     mediaRecorder = null
     mimeType = null
@@ -85,17 +75,9 @@ window.MyVideoRecorder = (() => {
 
     // カメラ起動(許可の取得も含む)
     async startCamera(videoWidth = null, videoHeight = null, isRetried = false) {
-      // ほかのレコーダーがプレビュー中であれば停止してから開始(競合回避)
-      const ar = getActiveRecorder();
-      if (ar && ar !== this) {
-        ar.stopCameraStream();
-        setActiveRecorder(null);
-      }
-      // (念のため)自分の過去の録画をクリーンにしてから開始
-      else if (ar && ar === this) {
-        this.stopRecording();
-        this.stopCameraStream();
-      }
+      // 別のmediaRecorderがある場合は停止
+      this.stopRecording();
+      this.stopCameraStream();
 
       // カメラの起動・録画準備
       try {
@@ -136,7 +118,7 @@ window.MyVideoRecorder = (() => {
         }
 
         // カメラからのストリームを取得
-        this.stream = await navigator.mediaDevices.getUserMedia({
+        stream = stream || await navigator.mediaDevices.getUserMedia({
           video: videoConstraints,
           audio: audioConstraints
         });
@@ -144,7 +126,7 @@ window.MyVideoRecorder = (() => {
         // iOSのストリームは縦横がランダムで、かつブラウザが回転を挟むことがある
         // したがって、一度video要素に表示してから縦横比を取得する
         const videoPreview = this.videoPreview;
-        videoPreview.srcObject = this.stream;
+        videoPreview.srcObject = stream;
         // ストリームの実際のアスペクト比を取得
         await this.setVideoPreviewAspectRatio();
 
@@ -195,13 +177,11 @@ window.MyVideoRecorder = (() => {
         // キャンバスからストリームを30fpsで取得
         const canvasStream = this.canvasElement.captureStream(30);
         // 音声はカメラからのストリームから取得
-        const audioTracks = this.stream.getAudioTracks();
+        const audioTracks = stream.getAudioTracks();
         if (audioTracks.length > 0) {
           canvasStream.addTrack(audioTracks[0]);
         }
         this.mediaRecorder = new MediaRecorder(canvasStream, options);
-        // このインスタンスをアクティブとして登録
-        setActiveRecorder(this);
         return true;
       } catch (err) {
         console.error("カメラ起動エラー:", err);
@@ -321,22 +301,17 @@ window.MyVideoRecorder = (() => {
 
     // ストリームを止めて、プレビューも停止
     stopCameraStream() {
-      if (this.stream) {
-        this.stream.getTracks().forEach(track => track.stop());
-        this.stream = null;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
       }
       this.videoPreview.srcObject = null;
       this.isPreviewLoaded = false;
-
-      const ar = getActiveRecorder();
-      if (ar === this) {
-        setActiveRecorder(null);
-      }
     }
 
     // canvasのフレームを描画する
     drawFrame() {
-      if (!this.stream) return;
+      if (!stream) return;
 
       // video要素のサイズではなく、映像のサイズ
       const videoWidth = this.videoPreview.videoWidth;
