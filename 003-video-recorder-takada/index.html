@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="video_recorder.js"></script>
+  <script src="video-sample.js"></script>
+  <title>recorderテスト</title>
+</head>
+
+<body>
+  <div>最終更新日時：</div>
+  <div>　HTML：2025/10/25 16:00</div>
+  <div>　JS：<span id="jsVersion"></span></div>
+  <div>　LIB：<span id="libVersion"></span></div>
+  <div>
+    <div style="position: relative">
+      <div id="video"></div>
+      <p id="loadingMessage" style="position: absolute; top: 50%; width: 100%; text-align: center; display: none">読み込み中
+      </p>
+    </div>
+    <div>
+      <br><button id="startPreview">プレビュー開始</button>
+      <button id="stopPreview">プレビュー停止</button>
+    </div>
+    <div style="margin-top: 5px;">
+      <button id="getAvailableDevices">デバイス取得</button>
+      &nbsp;ビデオ：<select id="videoDevices"></select>
+      &nbsp;音声：<select id="audioDevices"></select>
+    </div>
+    <br><button id="startRecording">録画開始</button>
+    <button id="stopRecording">録画終了</button>
+    <span id="recodingMessage" style="display: none;">録画中…<span style="display: none;">
+      <span id="recordingSizeMB" style="display: none;"></span>MB
+      （残り<span id="remainingSizeMB" style="display: none;"></span>MB）
+      </span>
+    </span>
+  </div>
+  <hr />
+  <div>
+    <video id="videoPreview" class="w-full h-full object-cover rounded" controls preload="metadata">
+      <p>お使いのブラウザは動画再生に対応していません。</p>
+    </video>
+  </div>
+  <textarea id="logTextArea" style="width: 100%; height: 200px;"></textarea>
+  <button id="logClearButton">クリア</button>
+  <hr/>
+  <div>
+    <div style="position: relative">
+      <div id="video2"></div>
+      <p id="loadingMessage2" style="position: absolute; top: 50%; width: 100%; text-align: center; display: none">読み込み中
+      </p>
+    </div>
+    <div>
+      <br><button id="startPreview2">プレビュー開始</button>
+      <button id="stopPreview2">プレビュー停止</button>
+    </div>
+    <div style="margin-top: 5px;">
+      <button id="getAvailableDevices2">デバイス取得</button>
+      &nbsp;ビデオ：<select id="videoDevices2"></select>
+      &nbsp;音声：<select id="audioDevices2"></select>
+    </div>
+    <br><button id="startRecording2">録画開始</button>
+    <button id="stopRecording2">録画終了</button>
+    <span id="recodingMessage2" style="display: none;">録画中…<span style="display: none;">
+      <span id="recordingSizeMB2" style="display: none;"></span>MB
+      （残り<span id="remainingSizeMB2" style="display: none;"></span>MB）
+      </span>
+    </span>
+  </div>
+  <textarea id="logTextArea2" style="width: 100%; height: 200px;"></textarea>
+  <button id="logClearButton2">クリア</button>
+  <hr />
+  <div>
+    <video id="videoPreview2" class="w-full h-full object-cover rounded" controls preload="metadata">
+      <p>お使いのブラウザは動画再生に対応していません。</p>
+    </video>
+  </div>
+</body>
+
+</html>
