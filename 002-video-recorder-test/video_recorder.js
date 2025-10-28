@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/10/28 19:00"
+    elem.innerText = "2025/10/28 19:25"
   }
 })
 
@@ -185,6 +185,7 @@ window.MyVideoRecorder = (() => {
         return true;
       } catch (err) {
         console.error("カメラ起動エラー:", err);
+        this.log(formatErrorText(err))
         return false;
       }
     }
@@ -412,6 +413,65 @@ window.MyVideoRecorder = (() => {
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  function formatErrorText(err) {
+    const e = errorToJSON(err);
+    let out = `${e.name}: ${e.message}`;
+    if (e.stack) out += `\n\n${e.stack}`;
+    if (e.cause) out += `\n\nCaused by:\n` + safeStringify(e.cause, 2);
+    return out;
+  }
+
+  // Error系をプレーンなJSONに落とす
+  function errorToJSON(err) {
+    if (!(err instanceof Error)) return err;
+
+    const base = {
+      name: err.name,
+      message: err.message,
+      stack: typeof err.stack === 'string' ? err.stack : undefined,
+    };
+
+    // cause (Error または 任意の値)
+    if ('cause' in err && err.cause !== undefined) {
+      base.cause = err.cause instanceof Error ? errorToJSON(err.cause) : err.cause;
+    }
+
+    // AggregateError 対応
+    if (typeof AggregateError !== 'undefined' && err instanceof AggregateError) {
+      base.errors = Array.from(err.errors || [], e =>
+        e instanceof Error ? errorToJSON(e) : e
+      );
+    }
+
+    // 列挙されない独自プロパティも含めて拾う
+    for (const key of Object.getOwnPropertyNames(err)) {
+      if (!(key in base)) {
+        // 関数などは省く
+        const v = err[key];
+        if (typeof v !== 'function') base[key] = v;
+      }
+    }
+
+    return base;
+  }
+
+  // 循環参照に強い stringify
+  function safeStringify(obj, space = 2) {
+    const seen = new WeakSet();
+    return JSON.stringify(
+      obj,
+      (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) return '[Circular]';
+          seen.add(value);
+        }
+        return value;
+      },
+      space
+    );
+  }
+
 
   /**
     * 
