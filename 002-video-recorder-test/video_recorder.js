@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/10/19 17:40"
+    elem.innerText = "2025/10/28 19:00"
   }
 })
 
@@ -76,8 +76,8 @@ window.MyVideoRecorder = (() => {
     // カメラ起動(許可の取得も含む)
     async startCamera(videoWidth = null, videoHeight = null, isRetried = false) {
       // 別のmediaRecorderがある場合は停止
-      this.stopRecording();
-      this.stopCameraStream();
+      await this.stopRecording();
+      await this.stopCameraStream();
 
       // カメラの起動・録画準備
       try {
@@ -300,13 +300,14 @@ window.MyVideoRecorder = (() => {
     }
 
     // ストリームを止めて、プレビューも停止
-    stopCameraStream() {
+    async stopCameraStream() {
       if (this.stream) {
         this.stream.getTracks().forEach(track => track.stop());
         this.stream = null;
       }
       this.videoPreview.srcObject = null;
       this.isPreviewLoaded = false;
+      sleep(500);
     }
 
     // canvasのフレームを描画する
@@ -358,24 +359,24 @@ window.MyVideoRecorder = (() => {
       );
     }
 
-    updateVideoDevice(deviceId) {
+    async updateVideoDevice(deviceId) {
       console.log("**************** updateVideoDevice")
       if (this.selectedVideoDevice !== deviceId) {
         this.selectedVideoDevice = deviceId
         if (this.isPreviewLoaded) {
-          this.stopCameraStream()
-          this.startCamera()
+          await this.stopCameraStream()
+          await this.startCamera()
         }
       }
     }
 
-    updateAudioDevice(deviceId) {
+    async updateAudioDevice(deviceId) {
       console.log("**************** updateAudioDevice")
       if (this.selectedAudioDevice !== deviceId) {
         this.selectedAudioDevice = deviceId
         if (this.isPreviewLoaded) {
-          this.stopCameraStream()
-          this.startCamera()
+          await this.stopCameraStream()
+          await this.startCamera()
         }
       }
     }
@@ -408,6 +409,10 @@ window.MyVideoRecorder = (() => {
     return { video, canvas }
   }
 
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   /**
     * 
     * @param {{
@@ -421,7 +426,7 @@ window.MyVideoRecorder = (() => {
     return {
       get cameraSupported() { return vr.cameraSupported },
       startPreview: async () => await vr.startCamera(),
-      stopPreview: () => vr.stopCameraStream(),
+      stopPreview: async () => await vr.stopCameraStream(),
       getAvailableDevices: async () => await vr.getAvailableDevices(),
       startRecording: () => vr.startRecording(),
       stopRecording: async () => vr.stopRecording(),
