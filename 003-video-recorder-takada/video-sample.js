@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("jsVersion")
   if (elem) {
-    elem.innerText = "2025/10/19 17:10"
+    elem.innerText = "2025/11/08 14:30"
   }
 })
 
@@ -21,16 +21,20 @@ document.addEventListener("DOMContentLoaded", () => {
       logTextArea
     }).then(vr => {
       videoRecorder = vr
-      // 初期状態でデバイス一覧を取得して先頭を選択状態にしておく
-      updateDevices()
     })
     document.getElementById("startPreview" + suffix).addEventListener("click", async () => {
+      // プレビュー開始
       const loadingMessage = document.getElementById("loadingMessage" + suffix)
+      // ローディングメッセージ表示
       loadingMessage.style.display = ""
-      const success = await videoRecorder.startPreview()
+      // カメラとマイクの許可を取得してプレビュー開始
+      const success = await videoRecorder.ensurePermissions() && await videoRecorder.startPreview()
+      // 選択中のデバイスを反映
+      await updateDevices()
+      // ローディングメッセージ非表示
       loadingMessage.style.display = "none"
       if (!success) {
-        alert("カメラとマイクのアクセスを許可してください。");
+        alert("カメラとマイクのアクセス許可が無いか、別のアプリケーションで使用中の可能性があります。");
         return
       }
     })
@@ -80,8 +84,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       refresh(audioDevices, devices.audioDevices)
       refresh(videoDevices, devices.videoDevices)
-      videoRecorder.videoDevice = videoDevices.value
-      videoRecorder.audioDevice = audioDevices.value
+      
+      // 選択中のデバイスがあれば状態にする
+      // なければ最初の要素を選択状態にする
+      // selectタグはselectedが無い場合は最初の要素が選択されるので、そのままでOK
+      if (videoRecorder.videoDevice) {
+        videoDevices.value = videoRecorder.videoDevice;
+      } else {
+        videoRecorder.videoDevice = videoDevices.value
+      }
+      if (videoRecorder.audioDevice) {
+        audioDevices.value = videoRecorder.audioDevice;
+      } else {
+        videoRecorder.audioDevice = audioDevices.value
+      }
     }
     audioDevices.addEventListener("change", () => {
       console.log(videoRecorder)

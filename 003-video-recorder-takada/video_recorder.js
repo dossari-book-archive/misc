@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/10/25 16:00"
+    elem.innerText = "2025/11/08 14:30"
   }
 })
 
@@ -10,6 +10,7 @@ window.MyVideoRecorder = (() => {
   const videoBitsPerSecond = 800000
   const audioBitsPerSecond = 128000
   let stream = null
+  let hasPermission = false
 
   class VideoRecorder {
     // 簡易デバイス判定
@@ -55,6 +56,7 @@ window.MyVideoRecorder = (() => {
     // 初期化
     async init() {
       // カメラとマイクの存在確認
+      // TODO: つながってる関数を分割する意味ってあるんかな？
       this.cameraSupported = this.isMediaDeviceSupported() && await this.hasCameraAndMic();
     }
     isMediaDeviceSupported() {
@@ -62,6 +64,7 @@ window.MyVideoRecorder = (() => {
         typeof navigator.mediaDevices.getUserMedia === "function" &&
         typeof navigator.mediaDevices.enumerateDevices === "function");
     }
+    // 許可がなくてもカメラとマイクが存在するかどうかは確認できる
     async hasCameraAndMic() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
         return false;
@@ -71,6 +74,51 @@ window.MyVideoRecorder = (() => {
       const hasMic = devices.some(device => device.kind === "audioinput");
 
       return hasCamera && hasMic;
+    }
+    // name: 'camera' | 'microphone' それぞれ許可状態を取得
+    async getPermissionState(name) {
+      try {
+        // 一部ブラウザでは 'camera' / 'microphone' が未定義だが try/catch で握りつぶす
+        if (!navigator.permissions || !navigator.permissions.query) return "prompt";
+        const res = await navigator.permissions.query({ name });
+        return res.state; // 'granted' | 'denied' | 'prompt'
+      } catch {
+        return "prompt";
+      }
+    }
+    // 権限をチェック
+    async checkPermissions() {
+      const camState = await this.getPermissionState("camera");
+      const micState = await this.getPermissionState("microphone");
+      window.MyVideoRecorder.hasPermission = (camState === "granted" && micState === "granted");
+    }
+    // カメラとマイクの許可を取得
+    async ensurePermissions() {
+      // 現在の最新の許可状態を確認し、グローバル変数へ
+      await this.checkPermissions();
+
+      // すでに許可がある場合は何もしない
+      if (window.MyVideoRecorder.hasPermission) {
+        return true;
+      }
+
+      let probeStream = null;
+      // ここで両方まとめて要求（1回のダイアログ）
+      try {
+        probeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // 許可が取れなければ例外が出るので、ここまで来たら許可が取れたと判断
+        window.MyVideoRecorder.hasPermission = true;
+      } catch (err) {
+        // TODO: ここは例外を発生させるべき？
+        console.error("カメラ・マイクの許可取得エラー:", err);
+        return false;
+      } finally {
+        // ストリームを停止
+        if (probeStream) {
+          probeStream.getTracks().forEach(t => t.stop());
+        }
+      }
+      return window.MyVideoRecorder.hasPermission;
     }
 
     // カメラ起動(許可の取得も含む)
@@ -87,7 +135,6 @@ window.MyVideoRecorder = (() => {
         this.isPortraitCamera = this.isSmallerThan768px && this.windowAspectRatio < 1;
 
         // ビデオ設定
-
         // デバイスに対して要求する映像の縦横を指定(指定通りにセットされるとは限らない)
         videoWidth = videoWidth || (this.isPortraitCamera ? this.shortSide : this.longSide);
         videoHeight = videoHeight || (this.isPortraitCamera ? this.longSide : this.shortSide);
@@ -117,7 +164,7 @@ window.MyVideoRecorder = (() => {
           audioConstraints.deviceId = { exact: this.selectedAudioDevice };
         }
 
-        // カメラからのストリームを取得
+        // カメラからのストリームを取得(共有)
         stream = stream || await navigator.mediaDevices.getUserMedia({
           video: videoConstraints,
           audio: audioConstraints
@@ -127,10 +174,11 @@ window.MyVideoRecorder = (() => {
         // したがって、一度video要素に表示してから縦横比を取得する
         const videoPreview = this.videoPreview;
         videoPreview.srcObject = stream;
+
         // ストリームの実際のアスペクト比を取得
         await this.setVideoPreviewAspectRatio();
 
-        // アスペクト比が反転している場合は1回だけ再取得--}}
+        // アスペクト比が反転している場合は1回だけ再取得
         const isInverted = this.checkInvertedAspectRatio();
         const logCommon = `vh:${videoHeight} vw:${videoWidth} portailt: ${this.isPortraitCamera} actualVideo: [w: ${videoPreview.clientWidth} h: ${videoPreview.clientHeight}]`
         if (isInverted && !isRetried) {
@@ -143,6 +191,9 @@ window.MyVideoRecorder = (() => {
 
         // 録画プレビューのロード完了
         this.isPreviewLoaded = true;
+
+        // TODO: カメラをスタートした段階でcanvasストリームも用意してる
+        // これってどうなんだろう？分けてもいい気もするけど。準備してるだけではある。
 
         // canvas要素のサイズを設定
         this.setCanvasSize();
@@ -174,6 +225,8 @@ window.MyVideoRecorder = (() => {
 
         // MediaRecorderの準備と、イベントの設定
 
+        // TODO: これもレコーディング側でやった方が良いかも
+        // streamが止まるとcanvasのstreamも開放するようにする
         // キャンバスからストリームを30fpsで取得
         const canvasStream = this.canvasElement.captureStream(30);
         // 音声はカメラからのストリームから取得
@@ -189,9 +242,15 @@ window.MyVideoRecorder = (() => {
       }
     }
 
-    // 利用可能なカメラとマイクのデバイス一覧を取得(許可が取れている前提)
+    // 利用可能なカメラとマイクのデバイス一覧を取得
     async getAvailableDevices() {
       try {
+        // 許可を取っていなければ取る
+        // TODO: ここは例外を発生させるべき？外から呼び出す関数と内部の関数を分けないとややこしくなりそう
+        if (!await this.ensurePermissions()) {
+          throw new Error("カメラとマイクの許可がありません");
+        }
+
         // デバイス一覧の取得
         const devices = await navigator.mediaDevices.enumerateDevices();
 
@@ -420,14 +479,17 @@ window.MyVideoRecorder = (() => {
     await vr.init()
     return {
       get cameraSupported() { return vr.cameraSupported },
+      ensurePermissions: async () => await vr.ensurePermissions(),
       startPreview: async () => await vr.startCamera(),
       stopPreview: () => vr.stopCameraStream(),
       getAvailableDevices: async () => await vr.getAvailableDevices(),
       startRecording: () => vr.startRecording(),
       stopRecording: async () => vr.stopRecording(),
+      get videoDevice() { return vr.selectedVideoDevice },
       set videoDevice(value) {
         vr.updateVideoDevice(value)
       },
+      get audioDevice() { return vr.selectedAudioDevice },
       set audioDevice(value) { vr.updateAudioDevice(value) },
     }
   }
