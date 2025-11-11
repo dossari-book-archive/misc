@@ -1,12 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/11/08 14:30"
+    elem.innerText = "2025/11/12 04:20"
   }
 })
 
 window.MyVideoRecorder = (() => {
 
+  // VideoRecorderのクラスやインスタンスのみから共通して参照可能な変数
+  // 即時関数で
   const videoBitsPerSecond = 800000
   const audioBitsPerSecond = 128000
   let stream = null
@@ -56,8 +58,9 @@ window.MyVideoRecorder = (() => {
     // 初期化
     async init() {
       // カメラとマイクの存在確認
-      // TODO: つながってる関数を分割する意味ってあるんかな？
       this.cameraSupported = this.isMediaDeviceSupported() && await this.hasCameraAndMic();
+      // 権限の確認
+      await this.checkPermissions();
     }
     isMediaDeviceSupported() {
       return !!(navigator.mediaDevices &&
@@ -90,27 +93,29 @@ window.MyVideoRecorder = (() => {
     async checkPermissions() {
       const camState = await this.getPermissionState("camera");
       const micState = await this.getPermissionState("microphone");
-      window.MyVideoRecorder.hasPermission = (camState === "granted" && micState === "granted");
+      hasPermission = (camState === "granted" && micState === "granted");
     }
     // カメラとマイクの許可を取得
     async ensurePermissions() {
-      // 現在の最新の許可状態を確認し、グローバル変数へ
-      await this.checkPermissions();
-
       // すでに許可がある場合は何もしない
-      if (window.MyVideoRecorder.hasPermission) {
+      if (hasPermission) {
         return true;
       }
 
       let probeStream = null;
-      // ここで両方まとめて要求（1回のダイアログ）
+      // ここで両方まとめて要求(1回のダイアログ)
       try {
         probeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         // 許可が取れなければ例外が出るので、ここまで来たら許可が取れたと判断
-        window.MyVideoRecorder.hasPermission = true;
+
+        // 許可を取るタイミングで選択されたデバイスIDを保存
+        this.selectedVideoDevice = probeStream.getVideoTracks()[0]?.getSettings()?.deviceId || "";
+        this.selectedAudioDevice = probeStream.getAudioTracks()[0]?.getSettings()?.deviceId || "";
+
+        // 許可取得成功
+        hasPermission = true;
       } catch (err) {
-        // TODO: ここは例外を発生させるべき？
-        console.error("カメラ・マイクの許可取得エラー:", err);
+        console.error("カメラ・マイクの許可取得に失敗:", err);
         return false;
       } finally {
         // ストリームを停止
@@ -118,7 +123,7 @@ window.MyVideoRecorder = (() => {
           probeStream.getTracks().forEach(t => t.stop());
         }
       }
-      return window.MyVideoRecorder.hasPermission;
+      return hasPermission;
     }
 
     // カメラ起動(許可の取得も含む)
@@ -141,13 +146,12 @@ window.MyVideoRecorder = (() => {
         const videoConstraints = {
           width: { ideal: videoWidth },
           height: { ideal: videoHeight },
-          frameRate: { ideal: 30, max: 30 }
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: "user"
         };
         // 選択されたビデオデバイスIDがある場合は使用
         if (this.selectedVideoDevice) {
           videoConstraints.deviceId = { exact: this.selectedVideoDevice };
-        } else {
-          videoConstraints.facingMode = "user";
         }
 
         // オーディオ設定
@@ -159,6 +163,7 @@ window.MyVideoRecorder = (() => {
           sampleSize: { ideal: 16 },
           channelCount: { ideal: 1 }
         };
+
         // 選択されたオーディオデバイスIDがある場合は使用
         if (this.selectedAudioDevice) {
           audioConstraints.deviceId = { exact: this.selectedAudioDevice };
@@ -177,7 +182,6 @@ window.MyVideoRecorder = (() => {
 
         // ストリームの実際のアスペクト比を取得
         await this.setVideoPreviewAspectRatio();
-
         // アスペクト比が反転している場合は1回だけ再取得
         const isInverted = this.checkInvertedAspectRatio();
         const logCommon = `vh:${videoHeight} vw:${videoWidth} portailt: ${this.isPortraitCamera} actualVideo: [w: ${videoPreview.clientWidth} h: ${videoPreview.clientHeight}]`
@@ -189,32 +193,27 @@ window.MyVideoRecorder = (() => {
           this.log(`VH Fixed: ${logCommon}`)
         }
 
-        // 録画プレビューのロード完了
-        this.isPreviewLoaded = true;
-
-        // TODO: カメラをスタートした段階でcanvasストリームも用意してる
-        // これってどうなんだろう？分けてもいい気もするけど。準備してるだけではある。
-
+        /* プレビューだけならここまででよいが、カメラ起動時にMediaRecorderも準備しておく */
         // canvas要素のサイズを設定
         this.setCanvasSize();
         // canvasを生成
         this.ctx = this.canvasElement.getContext("2d");
 
         // 優先順位順にMIMEタイプを設定
+        // codecsは=でいけるものも多いが一部:でないといけないので:で統一
         const mimeTypes = [
-          "video/mp4;codecs=h264,aac",
-          "video/mp4;codecs=h264",
-          "video/webm;codecs=vp9,opus",
-          "video/webm;codecs=vp8,opus",
+          "video/mp4;codecs:h264,aac",
+          "video/mp4;codecs:h264",
+          "video/mp4",
+          "video/webm;codecs:vp9,opus",
+          "video/webm;codecs:vp8,opus",
           "video/webm"
         ];
 
         // 録画オプションの設定
         const options = {
           videoBitsPerSecond,
-          audioBitsPerSecond,
-        };
-
+          audioBitsPerSecond        };
         for (const type of mimeTypes) {
           if (MediaRecorder.isTypeSupported(type)) {
             options.mimeType = type;
@@ -224,9 +223,6 @@ window.MyVideoRecorder = (() => {
         this.mimeType = options.mimeType || "video/webm";
 
         // MediaRecorderの準備と、イベントの設定
-
-        // TODO: これもレコーディング側でやった方が良いかも
-        // streamが止まるとcanvasのstreamも開放するようにする
         // キャンバスからストリームを30fpsで取得
         const canvasStream = this.canvasElement.captureStream(30);
         // 音声はカメラからのストリームから取得
@@ -235,9 +231,13 @@ window.MyVideoRecorder = (() => {
           canvasStream.addTrack(audioTracks[0]);
         }
         this.mediaRecorder = new MediaRecorder(canvasStream, options);
+
+         // 録画プレビューのロード完了
+        this.isPreviewLoaded = true;
         return true;
       } catch (err) {
         console.error("カメラ起動エラー:", err);
+        this.stopCameraStream();
         return false;
       }
     }
@@ -246,30 +246,52 @@ window.MyVideoRecorder = (() => {
     async getAvailableDevices() {
       try {
         // 許可を取っていなければ取る
-        // TODO: ここは例外を発生させるべき？外から呼び出す関数と内部の関数を分けないとややこしくなりそう
         if (!await this.ensurePermissions()) {
-          throw new Error("カメラとマイクの許可がありません");
+          this.cameraSupported = false;
+          return {
+            success: false,
+            videoDevices: [],
+            audioDevices: []
+          };
         }
 
         // デバイス一覧の取得
         const devices = await navigator.mediaDevices.enumerateDevices();
 
+        // 取得したデバイス一覧から、必要な情報だけを抽出するヘルパー関数
         const filterAndMap = (kind) =>
           devices.filter(device => device.kind === kind)
             .map(device => ({ id: device.deviceId, label: device.label }))
+        
         // ビデオデバイスとオーディオデバイスを分離
+        const videoDevices = filterAndMap("videoinput");
+        const audioDevices = filterAndMap("audioinput");
+        // 先頭に「デフォルト」オプションを挿入(空IDで表現)
+        const DEFAULT_VIDEO = { id: "", label: "デフォルトのカメラ" };
+        const DEFAULT_AUDIO = { id: "", label: "デフォルトのマイク" };
+
+        // 重複防止して、先頭にデフォルトを追加するヘルパー関数
+        const withDefault = (list, def) =>
+          list.some(d => d.id === def.id) ? list : [def, ...list];
+
         return {
-          videoDevices: filterAndMap("videoinput"),
-          audioDevices: filterAndMap("audioinput"),
+          success: true,
+          videoDevices: withDefault(videoDevices, DEFAULT_VIDEO),
+          audioDevices: withDefault(audioDevices, DEFAULT_AUDIO),
         }
       } catch (err) {
-        this.cameraSupported = false;
         console.error("デバイス一覧の取得に失敗しました:", err);
+        this.cameraSupported = false;
+        return {
+          success: false,
+          videoDevices: [],
+          audioDevices: []
+        };
       }
     }
 
     // 取得できたカメラストリームのアスペクト比を設定する(videoのロードまで待つのでawaitを使うこと)
-    async setVideoPreviewAspectRatio() {
+    setVideoPreviewAspectRatio() {
       return new Promise((resolve) => {
         const handleLoadedMetadata = () => {
           this.videoPreviewAspectRatio = this.videoPreview.videoWidth / this.videoPreview.videoHeight;
@@ -314,9 +336,11 @@ window.MyVideoRecorder = (() => {
 
     // 録画開始ボタンが押された時の処理(カメラ起動が終わっている前提)
     startRecording() {
-      if (!this.mediaRecorder || this.isRecording) { return }
+      if (!this.mediaRecorder || this.isRecording) {
+        console.error("録画に失敗。MediaRecorderが存在しないか、既に録画中です。");
+        return false;
+      }
       this.recordedChunks = [];
-      this.isRecording = true;
 
       // 録画データが利用可能になったときの処理(start(100)なので、100msごとにBlobのチャンクとして配列に保存)
       this.mediaRecorder.ondataavailable = (event) => {
@@ -327,10 +351,14 @@ window.MyVideoRecorder = (() => {
       // video要素に表示されている内容をcanvasでキャプチャしてストリームに流す
       this.drawFrame();
       this.mediaRecorder.start(100);
+      this.isRecording = true;
+
+      // 録画開始成功
+      return true;
     }
 
     // 録画停止ボタンが押された時の処理(onstopは別で実行される)
-    async stopRecording() {
+    stopRecording() {
       return new Promise(resolve => {
         if (!this.mediaRecorder || !this.isRecording) {
           return resolve({})
@@ -388,7 +416,7 @@ window.MyVideoRecorder = (() => {
     }
     // 動画を適切なアスペクト比でcanvasに描画する補助メソッド
     drawVideoFitted(videoWidth, videoHeight, canvasWidth, canvasHeight) {
-      // アスペクト比を保持しながらフィット（カバーモード）
+      // アスペクト比を保持しながらフィット(カバーモード)
       const videoAspect = videoWidth / videoHeight;
       const canvasAspect = canvasWidth / canvasHeight;
 
@@ -468,7 +496,6 @@ window.MyVideoRecorder = (() => {
   }
 
   /**
-    * 
     * @param {{
     *   elems: { video: HTMLVideoElement, canvas: HTMLCanvasElement }
     * }} param0 
@@ -479,12 +506,12 @@ window.MyVideoRecorder = (() => {
     await vr.init()
     return {
       get cameraSupported() { return vr.cameraSupported },
-      ensurePermissions: async () => await vr.ensurePermissions(),
-      startPreview: async () => await vr.startCamera(),
+      ensurePermissions: () => vr.ensurePermissions(),
+      startPreview: () => vr.startCamera(),
       stopPreview: () => vr.stopCameraStream(),
-      getAvailableDevices: async () => await vr.getAvailableDevices(),
+      getAvailableDevices: () => vr.getAvailableDevices(),
       startRecording: () => vr.startRecording(),
-      stopRecording: async () => vr.stopRecording(),
+      stopRecording: () => vr.stopRecording(),
       get videoDevice() { return vr.selectedVideoDevice },
       set videoDevice(value) {
         vr.updateVideoDevice(value)
@@ -511,7 +538,9 @@ window.MyVideoRecorder = (() => {
     } else {
       throw new Error("invalid selector: " + selector)
     }
-    return await createVideoObject({ elems, logTextArea })
+    // createVideoObjectはasyncだが、ここでawaitをしても意味は無い
+    // initはasyncでPromiseを返すため、採用が発生し、awaitしてもしなくても同じ値が返る
+    return createVideoObject({ elems, logTextArea })
   }
 
   return {

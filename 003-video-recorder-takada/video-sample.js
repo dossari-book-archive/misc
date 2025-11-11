@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("jsVersion")
   if (elem) {
-    elem.innerText = "2025/11/08 14:30"
+    elem.innerText = "2025/11/12 04:20"
   }
 })
 
@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const toMB = (value) => Math.max(0, (value / 1000_000)).toFixed(2)
       recordingSizeMB.innerHTML = toMB(0)
       remainedSizeMB.innerHTML = toMB(maxSize)
+      // TODO: オブジェクトを渡せるようにする
       videoRecorder.startRecording({
         async onProcess({ totalSize }) {
           recordingSizeMB.innerHTML = toMB(totalSize)
@@ -73,6 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // デバイス一覧
     const updateDevices = async () => {
       const devices = await videoRecorder.getAvailableDevices()
+      const success = devices.success;
+      if (!success) {
+        alert("カメラとマイクのアクセス許可が無いか、別のアプリケーションで使用中の可能性があります。");
+        return
+      }
       const refresh = (selectElem, devices) => {
         selectElem.innerHTML = ""
         devices.forEach(d => {
@@ -85,18 +91,14 @@ document.addEventListener("DOMContentLoaded", () => {
       refresh(audioDevices, devices.audioDevices)
       refresh(videoDevices, devices.videoDevices)
       
-      // 選択中のデバイスがあれば状態にする
-      // なければ最初の要素を選択状態にする
+      // 選択中のデバイスがあればセレクトで選択状態にする
+      // なければ最初の要素(デフォルト)を選択状態にする
       // selectタグはselectedが無い場合は最初の要素が選択されるので、そのままでOK
       if (videoRecorder.videoDevice) {
         videoDevices.value = videoRecorder.videoDevice;
-      } else {
-        videoRecorder.videoDevice = videoDevices.value
-      }
+      } 
       if (videoRecorder.audioDevice) {
         audioDevices.value = videoRecorder.audioDevice;
-      } else {
-        videoRecorder.audioDevice = audioDevices.value
       }
     }
     audioDevices.addEventListener("change", () => {
