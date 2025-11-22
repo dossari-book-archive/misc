@@ -132,6 +132,11 @@ window.MyVideoRecorder = (() => {
       this.stopRecording();
       this.stopCameraStream();
 
+       // ストリームをセットする前に隠す
+       // 一瞬表示させてから縦横比を取得したりしているため
+      this.videoPreview.style.opacity = "0"; 
+      this.videoPreview.style.transition = "opacity 0.3s";
+
       // カメラの起動・録画準備
       try {
         // ウィンドウのアスペクト比やサイズに関する情報のセット
@@ -231,6 +236,9 @@ window.MyVideoRecorder = (() => {
           canvasStream.addTrack(audioTracks[0]);
         }
         this.mediaRecorder = new MediaRecorder(canvasStream, options);
+
+        // カメラ起動成功で、プレビューを表示
+        this.videoPreview.style.opacity = "1";
 
          // 録画プレビューのロード完了
         this.isPreviewLoaded = true;
