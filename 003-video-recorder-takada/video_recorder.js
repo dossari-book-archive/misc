@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const elem = document.getElementById("libVersion")
   if (elem) {
-    elem.innerText = "2025/11/12 04:20"
+    elem.innerText = "2025/11/22 14:30"
   }
 })
 
@@ -294,7 +294,24 @@ window.MyVideoRecorder = (() => {
     setVideoPreviewAspectRatio() {
       return new Promise((resolve) => {
         const handleLoadedMetadata = () => {
-          this.videoPreviewAspectRatio = this.videoPreview.videoWidth / this.videoPreview.videoHeight;
+          // 現在のサイズで比率を計算
+          let aspect = this.videoPreview.videoWidth / this.videoPreview.videoHeight;
+
+          // 「縦画面モードなのに、映像が横長」の場合は、回転適用待ちの可能性が高いので少し待つ
+          if (this.isPortraitCamera && aspect > 1) {
+            setTimeout(() => {
+              // 500ms後に再取得して確定（この頃には回転が適用されているはず）
+              this.videoPreviewAspectRatio = this.videoPreview.videoWidth / this.videoPreview.videoHeight;
+              this.videoPreview.removeEventListener("loadedmetadata", handleLoadedMetadata);
+              resolve();
+            }, 500)
+
+            // 処理を終了
+            return
+          }
+
+          // 問題なければ即座に確定
+          this.videoPreviewAspectRatio = aspect;
           this.videoPreview.removeEventListener("loadedmetadata", handleLoadedMetadata);
           resolve();
         };
@@ -372,8 +389,10 @@ window.MyVideoRecorder = (() => {
           this.isRecording = false;
           this.recordedChunks = [];
 
-          this.mediaRecorder.onstop = null
-          this.mediaRecorder.ondataavailable = null
+          // event.targetにはthis.mediaRecorderが入っている
+          //　this.mediaRecorderをクリアすると、録画停止→再録画を高速で行った際にバグが起きるかもしれない
+          event.target.onstop = null
+          event.target.ondataavailable = null
           resolve({ blob, mimeType, event })
         };
         this.mediaRecorder.stop();
@@ -410,9 +429,7 @@ window.MyVideoRecorder = (() => {
       this.drawVideoFitted(videoWidth, videoHeight, canvasWidth, canvasHeight);
 
       // 録画中はcanvasを継続的に更新 / animationFrameIdは録画終了時に開放するメモリリーク対策
-      if (this.isRecording) {
-        this.animationFrameId = requestAnimationFrame(() => this.drawFrame());
-      }
+      this.animationFrameId = requestAnimationFrame(() => this.drawFrame());
     }
     // 動画を適切なアスペクト比でcanvasに描画する補助メソッド
     drawVideoFitted(videoWidth, videoHeight, canvasWidth, canvasHeight) {
