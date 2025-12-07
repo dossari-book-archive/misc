@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>VideoRecorder テスト</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --page-bg: #f5f5f7;
+      --card-bg: #fff;
+      --border-radius: 8px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 12px;
+      background: var(--page-bg);
+      color: #222;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      margin: 4px 0 12px;
+    }
+
+    section {
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      background: #eee;
+      white-space: nowrap;
+    }
+
+    .device-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+    }
+
+    label {
+      font-size: 0.8rem;
+      margin-right: 4px;
+    }
+
+    select,
+    button {
+      font-size: 0.85rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+
+    button {
+      cursor: pointer;
+      border-color: #aaa;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    video {
+      width: 100%;
+      /*max-height: 200px;*/
+      background: #000;
+      border-radius: 4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .status {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .message {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #333;
+    }
+
+    .message.error {
+      color: #c00;
+    }
+
+    /* --- スマホなど幅が狭い画面向け --- */
+    @media (max-width: 600px) {
+      body {
+        padding: 8px;
+      }
+
+      h1 {
+        font-size: 1.05rem;
+      }
+
+      .card {
+        padding: 10px 10px;
+      }
+
+      .device-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .device-row>* {
+        width: 100%;
+      }
+
+      select,
+      button {
+        width: 100%;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .controls button {
+        width: 100%;
+      }
+    }
+  </style>
+  <script src="video_recorder_v2.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h1>VideoRecorder テスト画面（レスポンシブ）</h1>
+
+    <!-- デバイス選択は画面内に1か所だけ -->
+    <section class="card" id="deviceSection">
+      <div class="card-header">
+        <strong>デバイス選択</strong>
+        <span class="badge">共通設定</span>
+      </div>
+      <div class="device-row">
+        <button id="btnPermission">カメラ・マイクの許可を確認</button>
+        <button id="btnReloadDevices">デバイス再取得</button>
+      </div>
+      <div class="device-row">
+        <div>
+          <label for="videoSelect">ビデオデバイス:</label>
+          <select id="videoSelect"></select>
+        </div>
+        <div>
+          <label for="audioSelect">オーディオデバイス:</label>
+          <select id="audioSelect"></select>
+        </div>
+      </div>
+      <div id="deviceMessage" class="message"></div>
+    </section>
+
+    <!-- プレビュー＆録画パネルは2か所 -->
+    <div class="grid">
+      <section class="card" id="panel1">
+        <div class="card-header">
+          <strong>プレビュー＆録画 1</strong>
+        </div>
+        <div id="video1"></div>
+        <!-- 録画再生用 -->
+        <video id="recorded1" controls style="display:none; margin-top:6px;"></video>
+        <div class="controls">
+          <button data-panel="1" data-action="startPreview">プレビュー開始</button>
+          <button data-panel="1" data-action="stopPreview" disabled>プレビュー停止</button>
+          <button data-panel="1" data-action="startRecording">録画開始</button>
+          <button data-panel="1" data-action="stopRecording" disabled>録画停止</button>
+        </div>
+        <div id="status1" class="status">待機中</div>
+      </section>
+
+      <section class="card" id="panel2">
+        <div class="card-header">
+          <strong>プレビュー＆録画 2</strong>
+        </div>
+        <div id="video2"></div>
+        <!-- 録画再生用 -->
+        <video id="recorded2" controls style="display:none; margin-top:6px;"></video>
+        <div class="controls">
+          <button data-panel="2" data-action="startPreview">プレビュー開始</button>
+          <button data-panel="2" data-action="stopPreview" disabled>プレビュー停止</button>
+          <button data-panel="2" data-action="startRecording">録画開始</button>
+          <button data-panel="2" data-action="stopRecording" disabled>録画停止</button>
+        </div>
+        <div id="status2" class="status">待機中</div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ★ 前提: この関数は質問文で示された実装がすでに存在している想定です。
+    // const getVideoRecorder = () => ({ ... });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      // 2つのインターフェース用レコーダ
+      const recorder1 = await window.MyVideoRecorder.init({ selector: '#video1' });
+      const recorder2 = await window.MyVideoRecorder.init({ selector: '#video2' });
+
+      // パネルの状態管理
+      const panelState = {
+        1: { preview: false, recording: false },
+        2: { preview: false, recording: false },
+      };
+
+      // どちらのパネルがカメラを使用中か (1 / 2 / null)
+      let activePanel = null;
+
+      // 録画再生用 URL を管理（再録画時に revoke するため）
+      const recordedUrls = {
+        1: null,
+        2: null,
+      };
+
+      const deviceMessage = document.getElementById("deviceMessage");
+      const videoSelect = document.getElementById("videoSelect");
+      const audioSelect = document.getElementById("audioSelect");
+
+      const statusEls = {
+        1: document.getElementById("status1"),
+        2: document.getElementById("status2"),
+      };
+
+      function getRecorder(panel) {
+        return panel === 1 ? recorder1 : recorder2;
+      }
+
+      function updateStatus(panel) {
+        const st = panelState[panel];
+        let text = "待機中";
+        if (st.recording) {
+          text = "録画中";
+        } else if (st.preview) {
+          text = "プレビュー中";
+        }
+        statusEls[panel].textContent = text;
+      }
+
+      // ボタンの有効/無効制御
+      function updatePanelButtons() {
+        const buttons = document.querySelectorAll("button[data-panel]");
+        buttons.forEach((btn) => {
+          const panel = Number(btn.dataset.panel);
+          const action = btn.dataset.action;
+          const st = panelState[panel];
+
+          // 片方が使用中の場合、もう片方のパネルは常に非活性
+          if (activePanel !== null && activePanel !== panel) {
+            btn.disabled = true;
+            return;
+          }
+
+          switch (action) {
+            case "startPreview":
+              // プレビュー中 or 録画中はプレビュー開始不可
+              btn.disabled = st.preview || st.recording;
+              break;
+
+            case "stopPreview":
+              // プレビュー停止はプレビュー中のみ、かつ録画中は不可
+              btn.disabled = !st.preview || st.recording;
+              break;
+
+            case "startRecording":
+              // 録画開始はプレビュー中のみ、かつ録画中でないこと
+              btn.disabled = !st.preview || st.recording;
+              break;
+
+            case "stopRecording":
+              // 録画停止は録画中のみ
+              btn.disabled = !st.recording;
+              break;
+          }
+        });
+      }
+
+      function recalcActivePanel() {
+        const p1Busy = panelState[1].preview || panelState[1].recording;
+        const p2Busy = panelState[2].preview || panelState[2].recording;
+        if (p1Busy && !p2Busy) {
+          activePanel = 1;
+        } else if (!p1Busy && p2Busy) {
+          activePanel = 2;
+        } else if (!p1Busy && !p2Busy) {
+          activePanel = null;
+        } else {
+          // 万一両方 busy になった場合は優先的に1をアクティブ扱い
+          activePanel = 1;
+        }
+        updatePanelButtons();
+      }
+
+      // --- デバイス一覧の取得・反映 ---
+      async function loadDevices() {
+        deviceMessage.textContent = "デバイスを取得中...";
+        try {
+          const rec = recorder1; // どちらでも良い
+          if (!rec.cameraSupported) {
+            deviceMessage.textContent = "このブラウザはカメラ/マイクに対応していません。";
+            deviceMessage.classList.add("error");
+            return;
+          }
+
+          const devices = await rec.getAvailableDevices();
+          // getAvailableDevices() の戻り値は実装依存なので、
+          // ここでは「MediaDeviceInfo の配列」を想定して kind で振り分けます。
+          const videoDevices = devices.videoDevices;
+          const audioDevices = devices.audioDevices;
+
+          videoSelect.innerHTML = "";
+          audioSelect.innerHTML = "";
+
+          videoDevices.forEach((dev) => {
+            const opt = document.createElement("option");
+            opt.value = dev.id;
+            opt.textContent = dev.label || `カメラ (${dev.deviceId})`;
+            videoSelect.appendChild(opt);
+          });
+
+          audioDevices.forEach((dev) => {
+            const opt = document.createElement("option");
+            opt.value = dev.id;
+            opt.textContent = dev.label || `マイク (${dev.deviceId})`;
+            audioSelect.appendChild(opt);
+          });
+
+          if (videoDevices.length === 0 && audioDevices.length === 0) {
+            deviceMessage.textContent = "利用可能なカメラ/マイクが見つかりません。";
+          } else {
+            deviceMessage.textContent = "デバイスを取得しました。";
+          }
+
+          // 最初の値をレコーダ両方に反映
+          if (videoDevices[0]) {
+            recorder1.videoDevice = videoDevices[0].deviceId;
+            recorder2.videoDevice = videoDevices[0].deviceId;
+          }
+          if (audioDevices[0]) {
+            recorder1.audioDevice = audioDevices[0].deviceId;
+            recorder2.audioDevice = audioDevices[0].deviceId;
+          }
+        } catch (e) {
+          console.error(e);
+          deviceMessage.textContent = "デバイス取得に失敗しました。コンソールを確認してください。";
+          deviceMessage.classList.add("error");
+        }
+      }
+
+      // --- イベント: デバイス選択変更 ---
+      videoSelect.addEventListener("change", () => {
+        const id = videoSelect.value;
+        recorder1.videoDevice = id;
+        recorder2.videoDevice = id;
+      });
+
+      audioSelect.addEventListener("change", () => {
+        const id = audioSelect.value;
+        recorder1.audioDevice = id;
+        recorder2.audioDevice = id;
+      });
+
+      // --- イベント: 許可確認 ---
+      document.getElementById("btnPermission").addEventListener("click", async () => {
+        deviceMessage.textContent = "権限を確認中...";
+        deviceMessage.classList.remove("error");
+        try {
+          await Promise.resolve(recorder1.ensurePermissions());
+          deviceMessage.textContent = "権限が許可されました。";
+          // 権限後にデバイス一覧を再取得
+          loadDevices();
+        } catch (e) {
+          console.error(e);
+          deviceMessage.textContent = "権限の取得に失敗しました。ブラウザの設定を確認してください。";
+          deviceMessage.classList.add("error");
+        }
+      });
+
+      // --- イベント: デバイス再取得 ---
+      document.getElementById("btnReloadDevices").addEventListener("click", () => {
+        loadDevices();
+      });
+
+      // --- パネルのボタン共通ハンドラ ---
+      document.body.addEventListener("click", async (ev) => {
+        const btn = ev.target;
+        if (!(btn instanceof HTMLButtonElement)) return;
+        const panelAttr = btn.dataset.panel;
+        const action = btn.dataset.action;
+        if (!panelAttr || !action) return;
+
+        const panel = Number(panelAttr);
+        const rec = getRecorder(panel);
+
+        try {
+          switch (action) {
+            case "startPreview":
+              await Promise.resolve(rec.startPreview());
+              panelState[panel].preview = true;
+              updateStatus(panel);
+              recalcActivePanel();
+              break;
+
+            case "stopPreview":
+              await Promise.resolve(rec.stopPreview());
+              panelState[panel].preview = false;
+              updateStatus(panel);
+              recalcActivePanel();
+              break;
+
+            case "startRecording":
+              await Promise.resolve(rec.startRecording({}));
+              panelState[panel].recording = true;
+              updateStatus(panel);
+              recalcActivePanel();
+              break;
+
+            case "stopRecording":
+              // stopRecording から { blob, mimeType } が返ってくる前提
+              const { blob, mimeType } = await Promise.resolve(rec.stopRecording());
+              panelState[panel].recording = false;
+
+              // 既に URL があれば解放
+              if (recordedUrls[panel]) {
+                URL.revokeObjectURL(recordedUrls[panel]);
+                recordedUrls[panel] = null;
+              }
+
+              const recordedVideo = document.getElementById(`recorded${panel}`);
+              const url = URL.createObjectURL(blob);
+              recordedUrls[panel] = url;
+
+              recordedVideo.style.display = "block";
+              recordedVideo.src = url;
+              recordedVideo.type = mimeType;
+
+              updateStatus(panel);
+              recalcActivePanel();
+              break;
+          }
+        } catch (e) {
+          console.error(e);
+          statusEls[panel].textContent = `エラー: ${e.message || e}`;
+        }
+      });
+
+      // ページ初期化
+      (function init() {
+        if (!recorder1.cameraSupported) {
+          deviceMessage.textContent = "このブラウザはカメラ/マイクに対応していません。";
+          deviceMessage.classList.add("error");
+          return;
+        }
+        deviceMessage.textContent = "「許可を確認」ボタンを押してカメラ・マイク権限を許可してください。";
+        updatePanelButtons();
+      })();
+    });
+  </script>
+</body>
+
+</html>
